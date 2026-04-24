@@ -1,9 +1,12 @@
 # rescontre
 
-Python SDK for [Rescontre](https://github.com/Jungyoonlim/Rescontre), an
-x402-style clearinghouse for agent-to-agent payments. Agents and resource
+Python SDK for Rescontre, a clearinghouse for agent-to-agent payments. Agents and resource
 servers record commitments against a bilateral ledger and settle in periodic
 batches instead of on every request.
+
+## Why?
+
+Instead of settling every API call on-chain, Rescontre nets obligations and settles the differences. Up to ~90% fewer settlement transactions. 
 
 ## Install
 
@@ -34,6 +37,24 @@ with Client("http://localhost:3000") as c:
 ```
 
 Amounts are integers in microdollars (`$1 == 1_000_000`).
+
+## Connect
+
+```python
+# Local development
+with Client("http://localhost:3000") as c:
+
+# Production
+with Client("https://rescontre-production.up.railway.app") as c:
+```
+
+```python
+    # After multiple settle calls in both directions...
+    result = c.bilateral_settlement("agent-1", "server-1")
+    print(f"Gross: ${result.gross_volume / 1_000_000:.2f}")
+    print(f"Net:   ${result.net_amount / 1_000_000:.2f}")
+    print(f"Compression: {result.compression:.0%}")
+```
 
 ## Links
 
