@@ -55,7 +55,3 @@ with Client("https://rescontre-production.up.railway.app") as c:
     print(f"Net:   ${result.net_amount / 1_000_000:.2f}")
     print(f"Compression: {result.compression:.0%}")
 ```
-
-## Links
-
-- Main repo: <https://github.com/Jungyoonlim/Rescontre>
