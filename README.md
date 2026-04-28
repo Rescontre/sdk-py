@@ -16,10 +16,21 @@ pip install rescontre
 
 ## Quickstart
 
+The SDK requires an API key for `verify` and `settle` calls. Mint one on the facilitator with `POST /admin/keys` (operator-only, requires `X-Internal-Secret`), then either set `RESCONTRE_API_KEY` in your environment or pass `api_key=` to the client:
+
+```bash
+export RESCONTRE_API_KEY=<64-char hex key>
+```
+
 ```python
 from rescontre import Client, Direction
 
+# Picks up RESCONTRE_API_KEY from the environment...
 with Client("http://localhost:3000") as c:
+    ...
+
+# ...or pass it explicitly:
+with Client("http://localhost:3000", api_key="<64-char hex key>") as c:
     c.register_agent("agent-1", wallet_address="0xAAA...")
     c.register_server("server-1", wallet_address="0xBBB...", endpoints=["/api/data"])
     c.create_agreement("agent-1", "server-1", credit_limit=10_000_000, settlement_frequency=100)

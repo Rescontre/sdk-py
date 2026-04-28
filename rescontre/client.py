@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import os
 from types import TracebackType
 from typing import Any
 
 import httpx
 
-from .errors import RescontreAPIError
+from .errors import AuthenticationError, RescontreAPIError, RescontreConfigurationError
 from .models import (
     BilateralSettlementResult,
     Direction,
@@ -14,6 +15,8 @@ from .models import (
 )
 
 DEFAULT_TIMEOUT = 10.0
+API_KEY_ENV = "RESCONTRE_API_KEY"
+API_KEY_HEADER = "X-API-Key"
 
 
 class Client:
@@ -23,9 +26,18 @@ class Client:
         self,
         base_url: str = "http://localhost:3000",
         *,
+        api_key: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         http_client: httpx.Client | None = None,
     ) -> None:
+        resolved_key = api_key or os.environ.get(API_KEY_ENV)
+        if not resolved_key:
+            raise RescontreConfigurationError(
+                "Rescontre API key is required. Pass api_key=... to Client(...) "
+                f"or set the {API_KEY_ENV} environment variable. "
+                "Mint a key via POST /admin/keys with X-Internal-Secret."
+            )
+        self._api_key = resolved_key
         self.base_url = base_url.rstrip("/")
         self._owns_client = http_client is None
         self._http = http_client or httpx.Client(
@@ -47,8 +59,16 @@ class Client:
         if self._owns_client:
             self._http.close()
 
-    def _request(self, method: str, path: str, *, json: Any = None) -> Any:
-        response = self._http.request(method, path, json=json)
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json: Any = None,
+        authenticated: bool = False,
+    ) -> Any:
+        headers = {API_KEY_HEADER: self._api_key} if authenticated else None
+        response = self._http.request(method, path, json=json, headers=headers)
         if response.status_code >= 400:
             try:
                 body = response.json()
@@ -56,6 +76,14 @@ class Client:
             except ValueError:
                 body = response.text
                 message = response.text or response.reason_phrase
+            if authenticated and response.status_code == 401:
+                raise AuthenticationError(
+                    "Rescontre rejected the API key — check "
+                    f"{API_KEY_ENV} or pass api_key= to the client. "
+                    "Mint a key via POST /admin/keys with X-Internal-Secret.",
+                    status_code=response.status_code,
+                    response_body=body,
+                )
             raise RescontreAPIError(
                 message, status_code=response.status_code, response_body=body
             )
@@ -124,6 +152,7 @@ class Client:
                 "amount": amount,
                 "nonce": nonce,
             },
+            authenticated=True,
         )
         return VerifyResponse.model_validate(data)
 
@@ -148,6 +177,7 @@ class Client:
                 "description": description,
                 "direction": direction.value if direction else None,
             },
+            authenticated=True,
         )
         return SettleResponse.model_validate(data)
 
